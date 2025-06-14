@@ -1,4 +1,5 @@
 const express = require('express');
+require('./db');
 const authRoutes = require('./auth');
 
 const app = express();
