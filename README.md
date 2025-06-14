@@ -18,4 +18,13 @@ This is a sample polyrepo structure with multiple Node.js microservices and GitH
 
 ## CI/CD
 
-GitHub Actions is configured to run tests and build Docker images on push to main branch.
+GitHub Actions is configured to run tests and build Docker images on push to the
+`main` branch. Images are published to the Quay registry and can be started
+together with MongoDB using the provided `docker-compose.yml`.
+
+### Running the stack locally
+
+1. Make sure Docker is installed.
+2. Run `docker compose up` from the repository root.
+3. Navigate to [http://localhost:8080](http://localhost:8080) to access the
+   sample frontend.
