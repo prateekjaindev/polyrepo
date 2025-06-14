@@ -1,4 +1,5 @@
 const express = require('express');
+require('./db');
 const orderRoutes = require('./order');
 
 const app = express();

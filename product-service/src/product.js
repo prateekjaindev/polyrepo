@@ -1,18 +1,17 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const router = express.Router();
-
-// Mock database
-let products = [];
+const Product = require('./models/Product');
 
 // Get all products
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
+  const products = await Product.find();
   res.json(products);
 });
 
 // Get product by ID
-router.get('/:id', (req, res) => {
-  const product = products.find(p => p.id === req.params.id);
+router.get('/:id', async (req, res) => {
+  const product = await Product.findById(req.params.id);
   if (!product) {
     return res.status(404).json({ message: 'Product not found' });
   }
@@ -27,23 +26,20 @@ router.post(
     body('price').isFloat({ gt: 0 }).withMessage('Price must be greater than 0'),
     body('stock').isInt({ min: 0 }).withMessage('Stock cannot be negative')
   ],
-  (req, res) => {
+  async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
     const { name, description, price, stock } = req.body;
-    const newProduct = {
-      id: Date.now().toString(),
+    const newProduct = new Product({
       name,
       description: description || '',
       price: parseFloat(price),
-      stock: parseInt(stock, 10),
-      createdAt: new Date().toISOString()
-    };
-
-    products.push(newProduct);
+      stock: parseInt(stock, 10)
+    });
+    await newProduct.save();
     res.status(201).json(newProduct);
   }
 );
@@ -55,36 +51,30 @@ router.put(
     body('price').if(body('price').exists()).isFloat({ gt: 0 }),
     body('stock').if(body('stock').exists()).isInt({ min: 0 })
   ],
-  (req, res) => {
+  async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const productIndex = products.findIndex(p => p.id === req.params.id);
-    if (productIndex === -1) {
+    const updatedProduct = await Product.findByIdAndUpdate(
+      req.params.id,
+      { ...req.body, updatedAt: new Date() },
+      { new: true }
+    );
+    if (!updatedProduct) {
       return res.status(404).json({ message: 'Product not found' });
     }
-
-    const updatedProduct = {
-      ...products[productIndex],
-      ...req.body,
-      updatedAt: new Date().toISOString()
-    };
-
-    products[productIndex] = updatedProduct;
     res.json(updatedProduct);
   }
 );
 
 // Delete product
-router.delete('/:id', (req, res) => {
-  const productIndex = products.findIndex(p => p.id === req.params.id);
-  if (productIndex === -1) {
+router.delete('/:id', async (req, res) => {
+  const deleted = await Product.findByIdAndDelete(req.params.id);
+  if (!deleted) {
     return res.status(404).json({ message: 'Product not found' });
   }
-
-  products = products.filter(p => p.id !== req.params.id);
   res.status(204).send();
 });
 

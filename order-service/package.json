@@ -12,7 +12,8 @@
   "dependencies": {
     "express": "^4.18.2",
     "express-validator": "^7.0.1",
-    "axios": "^1.4.0"
+    "axios": "^1.4.0",
+    "mongoose": "^8.3.5"
   },
   "devDependencies": {
     "jest": "^29.5.0",

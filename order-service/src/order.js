@@ -2,9 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const axios = require('axios');
 const router = express.Router();
-
-// Mock database
-let orders = [];
+const Order = require('./models/Order');
 
 // Configuration
 const PRODUCT_SERVICE_URL = process.env.PRODUCT_SERVICE_URL || 'http://product-service:3003';
@@ -21,13 +19,14 @@ async function validateProduct(productId, quantity) {
 }
 
 // Get all orders
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
+  const orders = await Order.find();
   res.json(orders);
 });
 
 // Get order by ID
-router.get('/:id', (req, res) => {
-  const order = orders.find(o => o.id === req.params.id);
+router.get('/:id', async (req, res) => {
+  const order = await Order.findById(req.params.id);
   if (!order) {
     return res.status(404).json({ message: 'Order not found' });
   }
@@ -69,16 +68,12 @@ router.post(
       }
 
       // Create order
-      const newOrder = {
-        id: Date.now().toString(),
+      const newOrder = new Order({
         userId,
         items,
-        status: 'pending',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      orders.push(newOrder);
+        status: 'pending'
+      });
+      await newOrder.save();
       
       // In a real application, you would update product stock here
       // and implement a transaction/saga pattern for consistency
@@ -97,49 +92,41 @@ router.patch(
   [
     body('status').isIn(['pending', 'processing', 'shipped', 'delivered', 'cancelled'])
   ],
-  (req, res) => {
+  async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const orderIndex = orders.findIndex(o => o.id === req.params.id);
-    if (orderIndex === -1) {
+    const updatedOrder = await Order.findByIdAndUpdate(
+      req.params.id,
+      { status: req.body.status, updatedAt: new Date() },
+      { new: true }
+    );
+    if (!updatedOrder) {
       return res.status(404).json({ message: 'Order not found' });
     }
-
-    const updatedOrder = {
-      ...orders[orderIndex],
-      status: req.body.status,
-      updatedAt: new Date().toISOString()
-    };
-
-    orders[orderIndex] = updatedOrder;
     res.json(updatedOrder);
   }
 );
 
 // Cancel order
-router.patch('/:id/cancel', (req, res) => {
-  const orderIndex = orders.findIndex(o => o.id === req.params.id);
-  if (orderIndex === -1) {
+router.patch('/:id/cancel', async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  if (!order) {
     return res.status(404).json({ message: 'Order not found' });
   }
 
-  if (['shipped', 'delivered', 'cancelled'].includes(orders[orderIndex].status)) {
-    return res.status(400).json({ 
-      message: `Cannot cancel order with status: ${orders[orderIndex].status}` 
+  if (['shipped', 'delivered', 'cancelled'].includes(order.status)) {
+    return res.status(400).json({
+      message: `Cannot cancel order with status: ${order.status}`
     });
   }
 
-  const updatedOrder = {
-    ...orders[orderIndex],
-    status: 'cancelled',
-    updatedAt: new Date().toISOString()
-  };
-
-  orders[orderIndex] = updatedOrder;
-  res.json(updatedOrder);
+  order.status = 'cancelled';
+  order.updatedAt = new Date();
+  await order.save();
+  res.json(order);
 });
 
 module.exports = router;
