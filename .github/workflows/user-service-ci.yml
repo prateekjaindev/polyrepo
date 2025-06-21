@@ -1,0 +1,22 @@
+name: User Service CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'user-service/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'user-service/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    uses: ./.github/workflows/docker-build-push.yml
+    with:
+      service_name: 'user-service'
+      service_path: './user-service'
+    secrets:
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}

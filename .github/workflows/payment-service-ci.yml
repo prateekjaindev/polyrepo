@@ -1,0 +1,22 @@
+name: Payment Service CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'payment-service/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'payment-service/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    uses: ./.github/workflows/docker-build-push.yml
+    with:
+      service_name: 'payment-service'
+      service_path: './payment-service'
+    secrets:
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}

@@ -1,0 +1,22 @@
+name: Product Service CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'product-service/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'product-service/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    uses: ./.github/workflows/docker-build-push.yml
+    with:
+      service_name: 'product-service'
+      service_path: './product-service'
+    secrets:
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}

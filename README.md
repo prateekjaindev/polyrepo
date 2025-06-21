@@ -16,13 +16,48 @@ This is a sample polyrepo structure with multiple Node.js microservices and GitH
 3. Run `npm install`
 4. Start the service with `npm start`
 
-## CI/CD
+## CI/CD with GitHub Actions
 
-GitHub Actions is configured to run tests and build Docker images on push to the
-`main` branch. Images are published to the Quay registry and can be started
-together with MongoDB using the provided `docker-compose.yml`.
-The workflow expects Quay credentials to be stored in the `DOCKERHUB_USERNAME`
-and `DOCKERHUB_TOKEN` secrets.
+GitHub Actions is configured to build and push Docker images to Quay.io for each service. The workflows are triggered on push to the `main` branch or manually via workflow dispatch.
+
+### Required GitHub Secrets
+
+You need to set up the following secrets in your GitHub repository:
+
+1. `QUAY_USERNAME` - Your Quay.io username
+2. `QUAY_PASSWORD` - Your Quay.io password or authentication token
+
+To set up the secrets:
+
+1. Go to your GitHub repository
+2. Navigate to Settings > Secrets and variables > Actions
+3. Click "New repository secret"
+4. Add each secret with its corresponding value
+
+### Available Workflows
+
+Each service has its own workflow file that builds and pushes its Docker image to Quay.io:
+
+- `auth-service` - Builds and pushes to `quay.io/prateekjain/auth-service`
+- `user-service` - Builds and pushes to `quay.io/prateekjain/user-service`
+- `product-service` - Builds and pushes to `quay.io/prateekjain/product-service`
+- `order-service` - Builds and pushes to `quay.io/prateekjain/order-service`
+- `inventory-service` - Builds and pushes to `quay.io/prateekjain/inventory-service`
+- `payment-service` - Builds and pushes to `quay.io/prateekjain/payment-service`
+
+### Manual Trigger
+
+You can manually trigger a build for any service by:
+1. Going to the "Actions" tab in your GitHub repository
+2. Selecting the workflow for the service you want to build
+3. Clicking "Run workflow" and selecting the branch
+
+### Image Tags
+
+Images are tagged with:
+- Branch name for branch builds
+- Pull request number for PRs
+- Semantic version tags (if using semantic versioning in your commits)
 
 ### Running the stack locally
 

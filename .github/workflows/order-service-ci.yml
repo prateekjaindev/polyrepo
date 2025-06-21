@@ -1,0 +1,22 @@
+name: Order Service CI/CD
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'order-service/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'order-service/**'
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    uses: ./.github/workflows/docker-build-push.yml
+    with:
+      service_name: 'order-service'
+      service_path: './order-service'
+    secrets:
+      QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
+      QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
