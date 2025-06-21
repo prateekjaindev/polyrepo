@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Services Health Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Services Health Dashboard</h1>
+        
+        <div class="services-grid" id="services-container">
+            <!-- Services will be populated by JavaScript -->
+            <div class="loading-message">Loading services status...</div>
+        </div>
+        
+        <div class="last-checked" id="last-checked">
+            Last checked: <span id="last-checked-time">Never</span>
+        </div>
+        
+        <button class="refresh-button" id="refresh-button">
+            <span class="refresh-icon">↻</span> Refresh Status
+        </button>
+    </div>
+
+    <script>
+        const services = [
+            { name: 'Auth Service', url: '/api/health/auth' },
+            { name: 'User Service', url: '/api/health/user' },
+            { name: 'Product Service', url: '/api/health/product' },
+            { name: 'Order Service', url: '/api/health/order' },
+            { name: 'Inventory Service', url: '/api/health/inventory' },
+            { name: 'Payment Service', url: '/api/health/payment' }
+        ];
+
+        function updateLastChecked() {
+            const now = new Date();
+            document.getElementById('last-checked-time').textContent = now.toLocaleString();
+        }
+
+        async function checkServiceHealth(service) {
+            try {
+                const startTime = Date.now();
+                const response = await fetch(service.url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    },
+                    credentials: 'same-origin'
+                });
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+                
+                let status = 'unknown';
+                let error = null;
+                
+                if (!response.ok) {
+                    error = `HTTP error! status: ${response.status}`;
+                    console.error(`Error checking ${service.name}:`, error);
+                    status = 'unhealthy';
+                } else {
+                    try {
+                        const data = await response.json();
+                        status = data.status === 'ok' ? 'healthy' : 'unhealthy';
+                        if (data.message) {
+                            console.log(`${service.name} status:`, data.message);
+                        }
+                    } catch (parseError) {
+                        error = `Failed to parse response: ${parseError.message}`;
+                        console.error(`Error parsing ${service.name} response:`, parseError);
+                        status = 'unhealthy';
+                    }
+                }
+                
+                return {
+                    ...service,
+                    status,
+                    responseTime,
+                    lastChecked: new Date().toISOString(),
+                    error: error || null
+                };
+                
+            } catch (error) {
+                console.error(`Error checking ${service.name}:`, error);
+                return {
+                    ...service,
+                    status: 'unhealthy',
+                    responseTime: null,
+                    lastChecked: new Date().toISOString(),
+                    error: error.message
+                };
+            }
+        }
+
+        function updateServiceCard(service) {
+            const container = document.getElementById('services-container');
+            
+            // Remove loading message if it exists
+            const loadingMessage = container.querySelector('.loading-message');
+            if (loadingMessage) {
+                container.removeChild(loadingMessage);
+            }
+            
+            let card = document.getElementById(`service-${service.name.toLowerCase().replace(/\s+/g, '-')}`);
+            
+            if (!card) {
+                card = document.createElement('div');
+                card.className = 'service-card';
+                card.id = `service-${service.name.toLowerCase().replace(/\s+/g, '-')}`;
+                container.appendChild(card);
+            }
+            
+            const statusText = service.status === 'healthy' ? 'Operational' : 
+                             service.status === 'unhealthy' ? 'Unavailable' : 'Unknown';
+            
+            card.innerHTML = `
+                <div class="service-header">
+                    <span class="service-name">${service.name}</span>
+                    <span class="status ${service.status}">${statusText}</span>
+                </div>
+                <div class="service-details">
+                    <p>URL: ${service.url}</p>
+                    ${service.responseTime ? `<p>Response Time: ${service.responseTime}ms</p>` : ''}
+                    ${service.error ? `<p class="error">Error: ${service.error}</p>` : ''}
+                </div>
+            `;
+        }
+
+        async function updateAllServices() {
+            const refreshButton = document.getElementById('refresh-button');
+            const originalButtonText = refreshButton.innerHTML;
+            refreshButton.disabled = true;
+            refreshButton.innerHTML = '<span class="loading"></span> Checking...';
+            
+            const results = await Promise.all(services.map(service => checkServiceHealth(service)));
+            
+            results.forEach(service => {
+                updateServiceCard(service);
+            });
+            
+            updateLastChecked();
+            refreshButton.disabled = false;
+            refreshButton.innerHTML = originalButtonText;
+        }
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateAllServices();
+            
+            // Set up refresh button
+            document.getElementById('refresh-button').addEventListener('click', updateAllServices);
+            
+            // Auto-refresh every 30 seconds
+            setInterval(updateAllServices, 30000);
+        });
+    </script>
+</body>
+</html>

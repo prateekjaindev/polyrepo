@@ -1,0 +1,240 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongo:
+    image: mongo:7
+    restart: always
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=password123
+      - MONGO_INITDB_DATABASE=admin
+    volumes:
+      - mongo-data:/data/db
+      - ./mongo-init.js/init-mongo.sh:/docker-entrypoint-initdb.d/init-mongo.sh
+    entrypoint: ["/bin/sh", "-c", "chmod +x /docker-entrypoint-initdb.d/init-mongo.sh && exec docker-entrypoint.sh --auth"]
+    networks:
+      - polyrepo-network
+  # Auth Service
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - MONGO_URL=mongodb://admin:password123@mongo:27017/auth-service?authSource=admin
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - JWT_EXPIRES_IN=24h
+      - BCRYPT_ROUNDS=12
+      - SERVICE_NAME=auth-service
+    depends_on:
+      - mongo
+    volumes:
+      - ./auth-service:/app
+      - /app/node_modules
+    restart: unless-stopped
+    networks:
+      - polyrepo-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # User Service
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=development
+      - PORT=3002
+      - MONGO_URL=mongodb://admin:password123@mongo:27017/user-service?authSource=admin
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - SERVICE_NAME=user-service
+    depends_on:
+      - mongo
+      - auth-service
+    volumes:
+      - ./user-service:/app
+      - /app/node_modules
+    restart: unless-stopped
+    networks:
+      - polyrepo-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Product Service
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=development
+      - PORT=3003
+      - MONGO_URL=mongodb://admin:password123@mongo:27017/product-service?authSource=admin
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - SERVICE_NAME=product-service
+    depends_on:
+      - mongo
+      - auth-service
+    volumes:
+      - ./product-service:/app
+      - /app/node_modules
+    restart: unless-stopped
+    networks:
+      - polyrepo-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Order Service
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=development
+      - PORT=3004
+      - MONGO_URL=mongodb://admin:password123@mongo:27017/order-service?authSource=admin
+      - PRODUCT_SERVICE_URL=http://product-service:3003
+      - USER_SERVICE_URL=http://user-service:3002
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - INVENTORY_SERVICE_URL=http://inventory-service:3005
+      - PAYMENT_SERVICE_URL=http://payment-service:3006
+      - SERVICE_NAME=order-service
+    depends_on:
+      - mongo
+      - auth-service
+      - user-service
+      - product-service
+      - inventory-service
+      - payment-service
+    volumes:
+      - ./order-service:/app
+      - /app/node_modules
+    restart: unless-stopped
+    networks:
+      - polyrepo-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Inventory Service
+  inventory-service:
+    build:
+      context: ./inventory-service
+      dockerfile: Dockerfile
+    ports:
+      - "3005:3005"
+    environment:
+      - NODE_ENV=development
+      - PORT=3005
+      - MONGO_URL=mongodb://admin:password123@mongo:27017/inventory-service?authSource=admin
+      - SERVICE_NAME=inventory-service
+    depends_on:
+      - mongo
+    volumes:
+      - ./inventory-service:/app
+      - /app/node_modules
+    restart: unless-stopped
+    networks:
+      - polyrepo-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Payment Service
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    ports:
+      - "3006:3006"
+    environment:
+      - NODE_ENV=development
+      - PORT=3006
+      - MONGO_URL=mongodb://admin:password123@mongo:27017/payment-service?authSource=admin
+      - SERVICE_NAME=payment-service
+    depends_on:
+      - mongo
+    volumes:
+      - ./payment-service:/app
+      - /app/node_modules
+    restart: unless-stopped
+    networks:
+      - polyrepo-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:3006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Redis for caching and sessions (optional)
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - polyrepo-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Dashboard Service
+  dashboard:
+    build: ./dashboard
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth-service
+      - user-service
+      - product-service
+      - order-service
+      - mongo
+    networks:
+      - polyrepo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  polyrepo-network:
+    driver: bridge
+
+volumes:
+  mongo-data:
+  redis-data:
